@@ -1,21 +1,97 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, XCircle, RotateCcw, Play, Lightbulb, Cpu, BookOpen, Trophy, GraduationCap, Sparkles, Gauge, FileChartColumn, CircuitBoard } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
+  Play,
+  Lightbulb,
+  Cpu,
+  BookOpen,
+  Trophy,
+  GraduationCap,
+  Sparkles,
+  Gauge,
+  FileChartColumn,
+  CircuitBoard,
+} from "lucide-react";
 
-const levels = [
+type Level = {
+  key: "intro" | "basic" | "advanced";
+  label: string;
+  audience: string;
+  description: string;
+};
+
+type StepItem = {
+  id: string;
+  label: string;
+  detail: string;
+};
+
+type DrawingComponent = {
+  type: "contact" | "coil" | "lamp" | "timer";
+  name: string;
+  detail: string;
+};
+
+type DrawingBranch = {
+  label: string;
+  components: DrawingComponent[];
+};
+
+type Drawing = {
+  title: string;
+  leftLabel: string;
+  rightLabel: string;
+  supply: string;
+  branches: DrawingBranch[];
+};
+
+type Quiz = {
+  question: string;
+  options: string[];
+  answer: number;
+  explanation: string;
+};
+
+type SimResult = {
+  output: boolean;
+  activeIndices: number[];
+  latch?: boolean;
+  nextTimerTick?: number;
+};
+
+type Simulator = {
+  inputs: string[];
+  outputLabel: string;
+  hint: string;
+  latch?: boolean;
+  timer?: boolean;
+  timerTicks?: number;
+  evaluate: (state: { X0?: boolean; X1?: boolean; X2?: boolean; latch?: boolean; timerTick?: number }) => SimResult;
+};
+
+type Lesson = {
+  id: number;
+  track: Level["key"];
+  title: string;
+  level: string;
+  concept: string;
+  points: string[];
+  steps: StepItem[];
+  drawing: Drawing;
+  quiz: Quiz;
+  simulator: Simulator;
+};
+
+const levels: Level[] = [
   { key: "intro", label: "初級", audience: "高校生・文系向け", description: "まずは信号の流れと機器の役割をやさしく理解する" },
   { key: "basic", label: "中級", audience: "大学生向け", description: "自己保持や順序制御など、現場でよく使う考え方を学ぶ" },
   { key: "advanced", label: "上級", audience: "理系・技術志向向け", description: "安全回路やインターロックを含む実務的な見方まで踏み込む" },
 ];
 
-const lessons = [
+const lessons: Lesson[] = [
   {
     id: 1,
     track: "intro",
@@ -70,7 +146,7 @@ const lessons = [
     simulator: {
       inputs: ["スタートボタン", "安全スイッチ"],
       outputLabel: "表示灯",
-      evaluate: ({ X0, X1 }) => ({ output: X0 && X1, activeIndices: X0 && X1 ? [0, 1, 2, 3] : X1 ? [0, 1] : [0] }),
+      evaluate: ({ X0, X1 }) => ({ output: !!X0 && !!X1, activeIndices: X0 && X1 ? [0, 1, 2, 3] : X1 ? [0, 1] : [0] }),
       hint: "安全スイッチをONにしてからスタートを押すと、最後まで信号が進みます。",
     },
   },
@@ -121,7 +197,7 @@ const lessons = [
     simulator: {
       inputs: ["起動スイッチ", "安全扉閉"],
       outputLabel: "モータ",
-      evaluate: ({ X0, X1 }) => ({ output: X0 && X1, activeIndices: X0 && X1 ? [0, 1, 2, 3] : X1 ? [0, 1] : [0] }),
+      evaluate: ({ X0, X1 }) => ({ output: !!X0 && !!X1, activeIndices: X0 && X1 ? [0, 1, 2, 3] : X1 ? [0, 1] : [0] }),
       hint: "片方だけONでは止まり、両方ONで最後まで進むことを確認します。",
     },
   },
@@ -172,7 +248,7 @@ const lessons = [
     simulator: {
       inputs: ["起動ボタン", "停止ボタン"],
       outputLabel: "運転出力",
-      evaluate: ({ X0, X1 }) => ({ output: X0 && !X1, activeIndices: X1 ? [0] : X0 ? [0, 1, 2, 3] : [0, 1] }),
+      evaluate: ({ X0, X1 }) => ({ output: !!X0 && !X1, activeIndices: X1 ? [0] : X0 ? [0, 1, 2, 3] : [0, 1] }),
       hint: "停止ボタンをONにすると途中で経路が切れる動きを確認できます。",
     },
   },
@@ -228,7 +304,7 @@ const lessons = [
       latch: true,
       evaluate: ({ X0, X1, latch }) => {
         if (X1) return { output: false, latch: false, activeIndices: [0] };
-        const nextLatch = X0 || latch;
+        const nextLatch = !!X0 || !!latch;
         return { output: nextLatch, latch: nextLatch, activeIndices: nextLatch ? [0, 1, 2, 3, 4] : [0] };
       },
       hint: "起動を一度入れてから離しても継続し、停止で解除される流れを見ます。",
@@ -350,7 +426,7 @@ const lessons = [
     simulator: {
       inputs: ["スタート", "前進端センサ"],
       outputLabel: "次工程許可",
-      evaluate: ({ X0, X1 }) => ({ output: X0 && X1, activeIndices: X0 && X1 ? [0, 1, 2, 3] : X0 ? [0, 1] : [0] }),
+      evaluate: ({ X0, X1 }) => ({ output: !!X0 && !!X1, activeIndices: X0 && X1 ? [0, 1, 2, 3] : X0 ? [0, 1] : [0] }),
       hint: "スタート後、前進端センサが入ると次工程へ進みます。",
     },
   },
@@ -411,7 +487,7 @@ const lessons = [
       inputs: ["正転要求", "逆転中信号", "安全OK"],
       outputLabel: "正転出力",
       evaluate: ({ X0, X1, X2 }) => {
-        const ok = X0 && !X1 && X2;
+        const ok = !!X0 && !X1 && !!X2;
         const activeIndices = [0];
         if (X0) activeIndices.push(1);
         if (X0 && !X1) activeIndices.push(2);
@@ -477,8 +553,8 @@ const lessons = [
       inputs: ["非常停止PB", "復帰条件", "ブザー停止PB"],
       outputLabel: "警報ブザー",
       evaluate: ({ X0, X1, X2 }) => {
-        const emgRelay = !X0 && X1;
-        const buzzer = X0 && !X2;
+        const emgRelay = !X0 && !!X1;
+        const buzzer = !!X0 && !X2;
         const activeIndices = X0 ? [0, 1, 2, 3] : emgRelay ? [0, 1] : [0];
         return { output: buzzer, activeIndices };
       },
@@ -533,41 +609,139 @@ const lessons = [
     simulator: {
       inputs: ["異常解除", "復帰PB", "安全OK"],
       outputLabel: "再始動許可",
-      evaluate: ({ X0, X1, X2 }) => ({ output: X0 && X1 && X2, activeIndices: X0 && X1 && X2 ? [0, 1, 2, 3] : X0 && X1 ? [0, 1, 2] : X0 ? [0, 1] : [0] }),
+      evaluate: ({ X0, X1, X2 }) => ({ output: !!X0 && !!X1 && !!X2, activeIndices: X0 && X1 && X2 ? [0, 1, 2, 3] : X0 && X1 ? [0, 1, 2] : X0 ? [0, 1] : [0] }),
       hint: "異常解除だけでは不足し、復帰PBと安全OKで最後まで進む構成です。",
     },
   },
 ];
 
-function getComponentColor(type, active) {
-  if (!active) return "border-slate-300 bg-white text-slate-600";
-  if (type === "coil" || type === "lamp") return "border-emerald-500 bg-emerald-50 text-emerald-800";
-  if (type === "timer") return "border-amber-500 bg-amber-50 text-amber-800";
-  return "border-sky-500 bg-sky-50 text-sky-800";
+const appStyles = `
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, "Noto Sans JP", system-ui, sans-serif; background: #e8edf3; color: #0f172a; }
+  button, input { font: inherit; }
+  .app-shell { min-height: 100vh; background: linear-gradient(135deg, #e2e8f0 0%, #ffffff 45%, #dbe4ef 100%); padding: 24px; }
+  .app-wrap { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+  .card { background: rgba(255,255,255,0.96); border: 1px solid rgba(148,163,184,0.2); border-radius: 24px; box-shadow: 0 10px 30px rgba(15,23,42,0.08); }
+  .hero-card { padding: 28px; }
+  .hero-grid { display: grid; gap: 24px; grid-template-columns: 1.7fr 1fr; align-items: center; }
+  .badge-row, .badge-wrap { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 12px; border: 1px solid #cbd5e1; background: #fff; color: #334155; }
+  .badge-solid { background: #0f172a; border-color: #0f172a; color: #fff; }
+  .hero-title { margin: 0; font-size: 42px; line-height: 1.15; }
+  .hero-desc { margin: 12px 0 0; color: #475569; line-height: 1.8; }
+  .progress-panel { background: #0f172a; color: white; border-radius: 24px; padding: 20px; }
+  .progress-label { display: flex; align-items: center; gap: 8px; color: #cbd5e1; font-size: 14px; }
+  .progress-value { font-size: 42px; font-weight: 800; margin-top: 10px; }
+  .progress-bar { width: 100%; height: 12px; border-radius: 999px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: 10px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #60a5fa, #34d399); }
+  .section-card { padding: 22px; }
+  .section-title-row { display: flex; align-items: center; gap: 10px; }
+  .section-title { margin: 0; font-size: 24px; }
+  .section-desc { color: #64748b; margin-top: 6px; }
+  .level-grid { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0,1fr)); margin-top: 16px; }
+  .level-btn, .lesson-btn, .option-btn, .input-toggle, .tab-btn { transition: .2s ease; }
+  .level-btn, .lesson-btn, .input-toggle, .option-btn { border: 1px solid #cbd5e1; background: white; border-radius: 20px; padding: 16px; text-align: left; cursor: pointer; }
+  .level-btn.active, .lesson-btn.active, .input-toggle.active { background: #0f172a; color: white; border-color: #0f172a; }
+  .level-sub, .lesson-sub { font-size: 12px; opacity: .72; }
+  .level-name { font-size: 20px; font-weight: 700; margin-top: 6px; }
+  .level-desc { margin-top: 8px; line-height: 1.7; font-size: 14px; }
+  .layout-grid { display: grid; gap: 24px; grid-template-columns: 320px 1fr; }
+  .lesson-list { padding: 22px; align-self: start; }
+  .lesson-stack { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+  .lesson-title { font-weight: 700; margin-top: 4px; }
+  .checkmark { flex-shrink: 0; }
+  .tabs-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: rgba(226,232,240,0.9); padding: 8px; border-radius: 18px; }
+  .tab-btn { border: none; border-radius: 14px; padding: 12px 14px; background: transparent; cursor: pointer; font-weight: 600; color: #334155; }
+  .tab-btn.active { background: white; box-shadow: 0 4px 12px rgba(15,23,42,0.08); }
+  .panel-stack { display: flex; flex-direction: column; gap: 16px; }
+  .content-card { padding: 22px; }
+  .sequence-block { background: #020617; border-radius: 28px; padding: 20px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); }
+  .sequence-grid { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0,1fr)); }
+  .step-box { border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #cbd5e1; padding: 16px; min-height: 126px; }
+  .step-box.active { border-color: #34d399; background: rgba(52,211,153,0.12); color: white; }
+  .step-label { font-size: 12px; opacity: .7; }
+  .step-title { margin-top: 6px; font-weight: 700; }
+  .step-detail { margin-top: 10px; font-size: 14px; line-height: 1.7; }
+  .point-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0,1fr)); margin-top: 16px; }
+  .point-box { background: #f8fafc; border-radius: 16px; padding: 14px; color: #334155; line-height: 1.7; font-size: 14px; }
+  .quiz-options { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+  .option-btn.selected { border-color: #0f172a; background: #f1f5f9; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .btn { border: none; border-radius: 14px; padding: 11px 16px; background: #0f172a; color: white; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+  .btn.secondary { background: white; color: #0f172a; border: 1px solid #cbd5e1; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .feedback { margin-top: 14px; border-radius: 16px; padding: 14px; font-size: 14px; line-height: 1.7; }
+  .feedback.ok { background: #ecfdf5; color: #065f46; }
+  .feedback.ng { background: #fff1f2; color: #9f1239; }
+  .sim-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .input-title { font-size: 12px; opacity: .72; }
+  .input-name { font-weight: 700; margin-top: 4px; }
+  .input-state { margin-top: 10px; font-size: 14px; }
+  .speed-grid { display: grid; gap: 16px; grid-template-columns: 1.1fr .9fr; }
+  .soft-panel { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 20px; padding: 16px; }
+  .dark-panel { background: #0f172a; color: white; border-radius: 20px; padding: 16px; }
+  .slider-wrap { margin-top: 14px; }
+  .range { width: 100%; }
+  .range-meta { margin-top: 8px; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }
+  .range-meta.dark { color: #cbd5e1; }
+  .subtabs { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; background: rgba(226,232,240,0.8); padding: 8px; border-radius: 18px; }
+  .result-grid { display: grid; gap: 16px; grid-template-columns: 1.2fr .8fr; }
+  .drawing-wrap { border-radius: 28px; border: 1px solid #e2e8f0; background: white; padding: 18px; }
+  .drawing-canvas { overflow-x: auto; border-radius: 20px; border: 1px solid #e2e8f0; background: #f8fafc; padding: 16px; margin-top: 14px; }
+  .drawing-inner { min-width: 980px; }
+  .drawing-line { height: 1px; background: #0f172a; }
+  .drawing-header, .drawing-footer { display: flex; justify-content: space-between; font-size: 12px; color: #475569; font-weight: 600; }
+  .branch-grid { margin-top: 24px; display: grid; gap: 24px; }
+  .branch-col { position: relative; min-height: 320px; padding: 0 16px; }
+  .branch-rail { position: absolute; left: 32px; top: 0; bottom: 64px; width: 1px; background: #475569; }
+  .branch-stack { display: flex; flex-direction: column; gap: 20px; padding-left: 4px; }
+  .component-row { position: relative; display: flex; align-items: center; gap: 12px; }
+  .component-dot { width: 12px; height: 12px; border-radius: 999px; border: 2px solid #475569; background: white; z-index: 1; }
+  .component-link { width: 32px; height: 1px; background: #475569; }
+  .component-box { min-width: 150px; border-radius: 12px; border: 1px solid #cbd5e1; padding: 10px 12px; background: white; color: #475569; }
+  .component-box.active.contact { border-color: #0ea5e9; background: #f0f9ff; color: #0c4a6e; }
+  .component-box.active.coil, .component-box.active.lamp { border-color: #10b981; background: #ecfdf5; color: #065f46; }
+  .component-box.active.timer { border-color: #f59e0b; background: #fffbeb; color: #92400e; }
+  .component-name { font-weight: 700; }
+  .component-detail { font-size: 12px; opacity: .8; margin-top: 4px; }
+  .branch-label { position: absolute; bottom: 40px; left: 0; right: 0; text-align: center; font-size: 14px; font-weight: 700; color: #334155; }
+  .branch-bottom { position: absolute; bottom: 24px; left: 32px; right: 32px; height: 1px; background: #475569; }
+  .log-box { border: 1px dashed #cbd5e1; border-radius: 20px; padding: 16px; }
+  .log-stack { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+  .log-item { border-radius: 14px; background: #f8fafc; padding: 10px 12px; color: #334155; font-size: 14px; }
+  .memo-input { width: 100%; height: 48px; border-radius: 14px; border: 1px solid #cbd5e1; padding: 0 14px; }
+  .memo-box { min-height: 180px; border: 1px dashed #cbd5e1; border-radius: 18px; padding: 14px; color: #475569; white-space: pre-wrap; }
+  @media (max-width: 1100px) {
+    .hero-grid, .layout-grid, .speed-grid, .result-grid { grid-template-columns: 1fr; }
+    .level-grid, .point-grid, .sequence-grid, .sim-grid { grid-template-columns: 1fr; }
+  }
+`;
+
+function IconLabel({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{icon}{text}</div>;
 }
 
-function SequenceDiagram({ lesson, animatedStep }) {
+function SequenceDiagram({ lesson, animatedStep }: { lesson: Lesson; animatedStep: number }) {
   return (
-    <div className="rounded-3xl bg-slate-950 p-5 shadow-inner">
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Badge className="rounded-full bg-white/10 text-white">シーケンス図</Badge>
-        <Badge variant="outline" className="rounded-full border-white/20 text-slate-200">{lesson.level}</Badge>
+    <div className="sequence-block">
+      <div className="badge-wrap" style={{ marginBottom: 16 }}>
+        <span className="badge" style={{ background: "rgba(255,255,255,0.08)", color: "white", borderColor: "rgba(255,255,255,0.14)" }}>シーケンス図</span>
+        <span className="badge" style={{ background: "transparent", color: "#cbd5e1", borderColor: "rgba(255,255,255,0.14)" }}>{lesson.level}</span>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="sequence-grid">
         {lesson.steps.map((step, index) => {
           const active = index <= animatedStep;
           return (
             <motion.div
               key={step.id}
-              initial={{ opacity: 0.5, y: 8 }}
-              animate={{ opacity: active ? 1 : 0.55, y: 0, scale: active ? 1.02 : 1 }}
-              transition={{ duration: 0.35 }}
-              className={`relative rounded-2xl border p-4 ${active ? "border-emerald-400 bg-emerald-400/10 text-white" : "border-white/10 bg-white/5 text-slate-300"}`}
+              className={`step-box ${active ? "active" : ""}`}
+              initial={{ opacity: 0.6, y: 8 }}
+              animate={{ opacity: active ? 1 : 0.58, y: 0, scale: active ? 1.02 : 1 }}
+              transition={{ duration: 0.28 }}
             >
-              <div className="text-xs tracking-wide opacity-70">STEP {index + 1}</div>
-              <div className="mt-1 text-base font-semibold">{step.label}</div>
-              <div className="mt-2 text-sm leading-6">{step.detail}</div>
-              {index < lesson.steps.length - 1 && <div className="hidden xl:block absolute -right-6 top-1/2 h-0.5 w-6 bg-white/20" />}
+              <div className="step-label">STEP {index + 1}</div>
+              <div className="step-title">{step.label}</div>
+              <div className="step-detail">{step.detail}</div>
             </motion.div>
           );
         })}
@@ -576,62 +750,65 @@ function SequenceDiagram({ lesson, animatedStep }) {
   );
 }
 
-function SequenceDrawingView({ lesson, visibleStep }) {
+function SequenceDrawingView({ lesson, visibleStep }: { lesson: Lesson; visibleStep: number }) {
   return (
-    <div className="rounded-3xl border bg-white p-4 shadow-sm">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div className="drawing-wrap">
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div>
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <FileChartColumn className="h-4 w-4" />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#64748b" }}>
+            <FileChartColumn size={16} />
             参考図面風シーケンス図面ビュー
           </div>
-          <div className="mt-1 text-lg font-semibold">{lesson.drawing.title}</div>
+          <div style={{ marginTop: 6, fontSize: 20, fontWeight: 700 }}>{lesson.drawing.title}</div>
         </div>
-        <div className="flex gap-2">
-          <Badge variant="outline">{lesson.drawing.supply}</Badge>
-          <Badge variant="secondary">ハード設計向け表現</Badge>
+        <div className="badge-wrap">
+          <span className="badge">{lesson.drawing.supply}</span>
+          <span className="badge">ハード設計向け表現</span>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border bg-slate-50 p-4">
-        <div className="min-w-[980px]">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-600">
-            <span>({lesson.id.toString().padStart(3, "0")}) {lesson.drawing.leftLabel}</span>
-            <span>({(lesson.id + 40).toString().padStart(3, "0")})</span>
+      <div className="drawing-canvas">
+        <div className="drawing-inner">
+          <div className="drawing-header">
+            <span>({String(lesson.id).padStart(3, "0")}) {lesson.drawing.leftLabel}</span>
+            <span>({String(lesson.id + 40).padStart(3, "0")})</span>
           </div>
-          <div className="mt-2 h-px bg-slate-900" />
+          <div className="drawing-line" style={{ marginTop: 10 }} />
 
-          <div className="mt-6 grid gap-6" style={{ gridTemplateColumns: `repeat(${lesson.drawing.branches.length}, minmax(280px, 1fr))` }}>
-            {lesson.drawing.branches.map((branch, branchIndex) => (
-              <div key={branch.label} className="relative min-h-[320px] px-4">
-                <div className="absolute left-8 top-0 bottom-16 w-px bg-slate-700" />
-                <div className="space-y-5 pl-2">
-                  {branch.components.map((component, componentIndex) => {
-                    const active = componentIndex <= visibleStep;
+          <div
+            className="branch-grid"
+            style={{ gridTemplateColumns: `repeat(${lesson.drawing.branches.length}, minmax(280px, 1fr))` }}
+          >
+            {lesson.drawing.branches.map((branch) => (
+              <div className="branch-col" key={branch.label}>
+                <div className="branch-rail" />
+                <div className="branch-stack">
+                  {branch.components.map((component, index) => {
+                    const active = index <= visibleStep;
                     return (
-                      <div key={`${branch.label}-${component.name}-${componentIndex}`} className="relative flex items-center gap-3">
-                        <div className="z-10 h-3 w-3 rounded-full border-2 border-slate-700 bg-white" />
-                        <div className="h-px w-8 bg-slate-700" />
+                      <div className="component-row" key={`${branch.label}-${component.name}-${index}`}>
+                        <div className="component-dot" />
+                        <div className="component-link" />
                         <motion.div
-                          animate={{ scale: active ? 1.02 : 1, opacity: active ? 1 : 0.75 }}
-                          className={`min-w-[150px] rounded-lg border px-3 py-2 text-sm ${getComponentColor(component.type, active)}`}
+                          className={`component-box ${active ? `active ${component.type}` : ""}`}
+                          animate={{ scale: active ? 1.02 : 1, opacity: active ? 1 : 0.78 }}
                         >
-                          <div className="font-semibold">{component.name}</div>
-                          <div className="text-xs opacity-80">{component.detail}</div>
+                          <div className="component-name">{component.name}</div>
+                          <div className="component-detail">{component.detail}</div>
                         </motion.div>
                       </div>
                     );
                   })}
                 </div>
-                <div className="absolute bottom-10 left-0 right-0 text-center text-sm font-medium text-slate-700">{branch.label}</div>
-                <div className="absolute bottom-6 left-8 right-8 h-px bg-slate-700" />
+                <div className="branch-label">{branch.label}</div>
+                <div className="branch-bottom" />
               </div>
             ))}
           </div>
 
-          <div className="mt-3 h-px bg-slate-900" />
-          <div className="mt-2 flex items-center justify-between text-xs font-medium text-slate-600">
-            <span>({lesson.id.toString().padStart(3, "0")}) {lesson.drawing.rightLabel}</span>
+          <div className="drawing-line" style={{ marginTop: 8 }} />
+          <div className="drawing-footer" style={{ marginTop: 10 }}>
+            <span>({String(lesson.id).padStart(3, "0")}) {lesson.drawing.rightLabel}</span>
             <span>参考図面の雰囲気を意識した簡易表示</span>
           </div>
         </div>
@@ -640,107 +817,120 @@ function SequenceDrawingView({ lesson, visibleStep }) {
   );
 }
 
-function KnowledgePanel({ lesson }) {
+function KnowledgePanel({ lesson }: { lesson: Lesson }) {
+  const audience = levels.find((item) => item.key === lesson.track)?.audience;
   return (
-    <Card className="rounded-2xl shadow-lg border-0">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5" />
-          <CardTitle>{lesson.title}</CardTitle>
-        </div>
-        <CardDescription>{lesson.concept}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex gap-2 flex-wrap">
-          <Badge variant="secondary">{lesson.level}</Badge>
-          <Badge variant="outline">対象: {levels.find((item) => item.key === lesson.track)?.audience}</Badge>
-          <Badge variant="outline">各レベル3題構成</Badge>
-          <Badge variant="outline">図面ビュー対応</Badge>
-        </div>
+    <div className="card content-card">
+      <div className="section-title-row">
+        <BookOpen size={20} />
+        <h2 className="section-title">{lesson.title}</h2>
+      </div>
+      <div className="section-desc">{lesson.concept}</div>
 
+      <div className="badge-wrap" style={{ marginTop: 14 }}>
+        <span className="badge">{lesson.level}</span>
+        <span className="badge">対象: {audience}</span>
+        <span className="badge">各レベル3題構成</span>
+        <span className="badge">図面ビュー対応</span>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
         <SequenceDiagram lesson={lesson} animatedStep={lesson.steps.length - 1} />
+      </div>
 
-        <div className="grid gap-2 md:grid-cols-3">
-          {lesson.points.map((point, index) => (
-            <div key={index} className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{point}</div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+      <div className="point-grid">
+        {lesson.points.map((point, index) => (
+          <div className="point-box" key={index}>{point}</div>
+        ))}
+      </div>
+    </div>
   );
 }
 
-function QuizPanel({ lesson, onCorrect }) {
-  const [selected, setSelected] = useState(null);
+function QuizPanel({ lesson, onCorrect }: { lesson: Lesson; onCorrect: () => void }) {
+  const [selected, setSelected] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const isCorrect = selected === lesson.quiz.answer;
 
   return (
-    <Card className="rounded-2xl shadow-lg border-0">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Lightbulb className="h-5 w-5" />
-          <CardTitle>理解チェック</CardTitle>
-        </div>
-        <CardDescription>{lesson.quiz.question}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {lesson.quiz.options.map((option, index) => {
-          const active = selected === index;
-          return (
-            <button
-              key={index}
-              onClick={() => !submitted && setSelected(index)}
-              className={`w-full rounded-xl border p-3 text-left text-sm transition ${active ? "border-slate-900 bg-slate-100" : "border-slate-200 bg-white hover:bg-slate-50"}`}
-            >
-              {index + 1}. {option}
-            </button>
-          );
-        })}
+    <div className="card content-card">
+      <div className="section-title-row">
+        <Lightbulb size={20} />
+        <h2 className="section-title">理解チェック</h2>
+      </div>
+      <div className="section-desc">{lesson.quiz.question}</div>
 
-        <div className="flex gap-2">
-          <Button onClick={() => { setSubmitted(true); if (isCorrect) onCorrect(); }} disabled={selected === null || submitted}>採点する</Button>
-          <Button variant="outline" onClick={() => { setSelected(null); setSubmitted(false); }}>リセット</Button>
-        </div>
-
-        {submitted && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`rounded-xl p-4 text-sm ${isCorrect ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}
+      <div className="quiz-options">
+        {lesson.quiz.options.map((option, index) => (
+          <button
+            key={index}
+            className={`option-btn ${selected === index ? "selected" : ""}`}
+            onClick={() => !submitted && setSelected(index)}
           >
-            <div className="mb-2 flex items-center gap-2 font-medium">
-              {isCorrect ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-              {isCorrect ? "正解です" : "もう一度確認しましょう"}
-            </div>
-            <p>{lesson.quiz.explanation}</p>
-          </motion.div>
-        )}
-      </CardContent>
-    </Card>
+            {index + 1}. {option}
+          </button>
+        ))}
+      </div>
+
+      <div className="btn-row">
+        <button
+          className="btn"
+          disabled={selected === null || submitted}
+          onClick={() => {
+            setSubmitted(true);
+            if (isCorrect) onCorrect();
+          }}
+        >
+          採点する
+        </button>
+        <button className="btn secondary" onClick={() => { setSelected(null); setSubmitted(false); }}>
+          リセット
+        </button>
+      </div>
+
+      {submitted && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`feedback ${isCorrect ? "ok" : "ng"}`}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, marginBottom: 8 }}>
+            {isCorrect ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+            {isCorrect ? "正解です" : "もう一度確認しましょう"}
+          </div>
+          <div>{lesson.quiz.explanation}</div>
+        </motion.div>
+      )}
+    </div>
   );
 }
 
-function BasicSimulator({ lesson, speed, onSpeedChange }) {
-  const [inputs, setInputs] = useState(Object.fromEntries(lesson.simulator.inputs.map((_, i) => [`X${i}`, false])));
-  const [history, setHistory] = useState([]);
+function BasicSimulator({ lesson, speed, onSpeedChange }: { lesson: Lesson; speed: number; onSpeedChange: (value: number) => void }) {
+  const [inputs, setInputs] = useState<Record<string, boolean>>({});
+  const [history, setHistory] = useState<{ text: string }[]>([]);
   const [latch, setLatch] = useState(false);
   const [timerTick, setTimerTick] = useState(0);
   const [animatedStep, setAnimatedStep] = useState(-1);
-  const [activePath, setActivePath] = useState([]);
+  const [activePath, setActivePath] = useState<number[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [viewMode, setViewMode] = useState<"sequence" | "drawing">("sequence");
 
   useEffect(() => {
-    setInputs(Object.fromEntries(lesson.simulator.inputs.map((_, i) => [`X${i}`, false])));
+    const nextInputs = Object.fromEntries(lesson.simulator.inputs.map((_, i) => [`X${i}`, false]));
+    setInputs(nextInputs);
     setHistory([]);
     setLatch(false);
     setTimerTick(0);
     setAnimatedStep(-1);
     setActivePath([]);
     setIsPlaying(false);
+    setViewMode("sequence");
   }, [lesson.id]);
 
-  const result = useMemo(() => lesson.simulator.evaluate({ ...inputs, latch, timerTick }), [inputs, latch, timerTick, lesson]);
+  const result = useMemo(
+    () => lesson.simulator.evaluate({ ...inputs, latch, timerTick }),
+    [inputs, latch, timerTick, lesson]
+  );
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -748,9 +938,9 @@ function BasicSimulator({ lesson, speed, onSpeedChange }) {
       setIsPlaying(false);
       return;
     }
-    const timer = setTimeout(() => setAnimatedStep((prev) => prev + 1), speed);
-    return () => clearTimeout(timer);
-  }, [animatedStep, isPlaying, activePath.length, speed]);
+    const timer = window.setTimeout(() => setAnimatedStep((prev) => prev + 1), speed);
+    return () => window.clearTimeout(timer);
+  }, [animatedStep, isPlaying, activePath, speed]);
 
   const playSequence = () => {
     const next = lesson.simulator.evaluate({ ...inputs, latch, timerTick });
@@ -761,7 +951,9 @@ function BasicSimulator({ lesson, speed, onSpeedChange }) {
     setIsPlaying(true);
     setHistory((prev) => [
       {
-        text: `再生 ${prev.length + 1}: ${lesson.simulator.inputs.map((label, index) => `${label}=${inputs[`X${index}`] ? "ON" : "OFF"}`).join(" / ")} / 出力=${next.output ? "ON" : "OFF"}`,
+        text: `再生 ${prev.length + 1}: ${lesson.simulator.inputs
+          .map((label, index) => `${label}=${inputs[`X${index}`] ? "ON" : "OFF"}`)
+          .join(" / ")} / 出力=${next.output ? "ON" : "OFF"}`,
       },
       ...prev,
     ].slice(0, 10));
@@ -780,113 +972,135 @@ function BasicSimulator({ lesson, speed, onSpeedChange }) {
   const visibleStep = animatedStep >= 0 && activePath[animatedStep] !== undefined ? activePath[animatedStep] : -1;
 
   return (
-    <Card className="rounded-2xl shadow-lg border-0">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Cpu className="h-5 w-5" />
-          <CardTitle>動作確認シミュレータ</CardTitle>
-        </div>
-        <CardDescription>{lesson.simulator.hint}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="grid gap-3 md:grid-cols-3">
-          {lesson.simulator.inputs.map((label, index) => {
-            const key = `X${index}`;
-            return (
-              <button
-                key={key}
-                onClick={() => setInputs((prev) => ({ ...prev, [key]: !prev[key] }))}
-                className={`rounded-2xl border p-4 text-left transition ${inputs[key] ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white hover:bg-slate-50"}`}
-              >
-                <div className="text-xs opacity-70">入力条件</div>
-                <div className="font-medium">{label}</div>
-                <div className="mt-2 text-sm">状態: {inputs[key] ? "ON" : "OFF"}</div>
-              </button>
-            );
-          })}
-        </div>
+    <div className="card content-card">
+      <div className="section-title-row">
+        <Cpu size={20} />
+        <h2 className="section-title">動作確認シミュレータ</h2>
+      </div>
+      <div className="section-desc">{lesson.simulator.hint}</div>
 
-        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-2xl border bg-slate-50 p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-700">
-              <Gauge className="h-4 w-4" />
-              アニメーション速度
-            </div>
-            <div className="px-1">
-              <Slider value={[speed]} min={250} max={1400} step={50} onValueChange={(value) => onSpeedChange(value[0])} />
-            </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-              <span>速い</span>
-              <span>{speed} ms / step</span>
-              <span>ゆっくり</span>
-            </div>
+      <div className="sim-grid" style={{ marginTop: 18 }}>
+        {lesson.simulator.inputs.map((label, index) => {
+          const key = `X${index}`;
+          const active = !!inputs[key];
+          return (
+            <button
+              key={key}
+              className={`input-toggle ${active ? "active" : ""}`}
+              onClick={() => setInputs((prev) => ({ ...prev, [key]: !prev[key] }))}
+            >
+              <div className="input-title">入力条件</div>
+              <div className="input-name">{label}</div>
+              <div className="input-state">状態: {active ? "ON" : "OFF"}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="speed-grid" style={{ marginTop: 18 }}>
+        <div className="soft-panel">
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
+            <Gauge size={16} />
+            アニメーション速度
           </div>
-          <div className="rounded-2xl bg-slate-950 p-4 text-white">
-            <div className="flex items-center gap-2 text-sm text-slate-300">
-              <Sparkles className="h-4 w-4" />
-              再生状態
-            </div>
-            <div className="mt-3 text-2xl font-bold">{isPlaying ? "再生中" : "待機中"}</div>
-            <div className="mt-2 text-sm text-slate-300">到達ステップ: {Math.max(animatedStep + 1, 0)} / {Math.max(activePath.length, 1)}</div>
-            {lesson.simulator.timer && <div className="mt-2 text-sm text-slate-300">タイマ進行: {timerTick} / {lesson.simulator.timerTicks}</div>}
-            {lesson.simulator.latch && <div className="mt-2 text-sm text-slate-300">保持状態: {latch ? "保持中" : "未保持"}</div>}
+          <div className="slider-wrap">
+            <input
+              className="range"
+              type="range"
+              min={250}
+              max={1400}
+              step={50}
+              value={speed}
+              onChange={(e) => onSpeedChange(Number(e.target.value))}
+            />
+          </div>
+          <div className="range-meta">
+            <span>速い</span>
+            <span>{speed} ms / step</span>
+            <span>ゆっくり</span>
           </div>
         </div>
 
-        <Tabs defaultValue="sequence" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 rounded-2xl">
-            <TabsTrigger value="sequence">シーケンス図</TabsTrigger>
-            <TabsTrigger value="drawing">シーケンス図面</TabsTrigger>
-          </TabsList>
-          <TabsContent value="sequence">
-            <SequenceDiagram lesson={lesson} animatedStep={visibleStep} />
-          </TabsContent>
-          <TabsContent value="drawing">
-            <SequenceDrawingView lesson={lesson} visibleStep={visibleStep} />
-          </TabsContent>
-        </Tabs>
-
-        <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <div className="text-xs text-slate-500">動作結果</div>
-            <div className="mt-2 text-lg font-semibold">{lesson.simulator.outputLabel}: {result.output ? "ON" : "OFF"}</div>
-            <div className="mt-3 text-sm text-slate-600">アニメーションでは、成立した条件が順に光り、最後に出力へ到達します。図面タブでは参考画像のような縦配線ベースの見え方で確認できます。</div>
+        <div className="dark-panel">
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#cbd5e1", fontSize: 14 }}>
+            <Sparkles size={16} />
+            再生状態
           </div>
-          <div className="rounded-2xl border border-dashed p-4 text-sm text-slate-600">
-            <div className="mb-2 flex items-center gap-2 font-medium text-slate-800">
-              <CircuitBoard className="h-4 w-4" />
-              図面ビューの狙い
+          <div style={{ fontSize: 30, fontWeight: 800, marginTop: 10 }}>{isPlaying ? "再生中" : "待機中"}</div>
+          <div style={{ marginTop: 8, fontSize: 14, color: "#cbd5e1" }}>
+            到達ステップ: {Math.max(animatedStep + 1, 0)} / {Math.max(activePath.length, 1)}
+          </div>
+          {lesson.simulator.timer && (
+            <div style={{ marginTop: 8, fontSize: 14, color: "#cbd5e1" }}>
+              タイマ進行: {timerTick} / {lesson.simulator.timerTicks}
             </div>
-            実図面そのものではなく、参考図面の雰囲気に寄せた教育用の簡易図面表示です。将来的に機器記号や接点番号を部署ルールに合わせて増やしやすい構成にしています。
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={playSequence}><Play className="mr-2 h-4 w-4" />アニメーション再生</Button>
-          <Button variant="outline" onClick={reset}><RotateCcw className="mr-2 h-4 w-4" />リセット</Button>
-        </div>
-
-        <div className="rounded-2xl border border-dashed p-4">
-          <div className="mb-2 text-sm font-medium">動作ログ</div>
-          {history.length === 0 ? (
-            <div className="text-sm text-slate-500">まだ操作ログはありません。条件を切り替えてアニメーション再生してみてください。</div>
-          ) : (
-            <div className="space-y-2 text-sm text-slate-700">
-              {history.map((item, index) => <div key={index} className="rounded-xl bg-slate-50 p-2">{item.text}</div>)}
+          )}
+          {lesson.simulator.latch && (
+            <div style={{ marginTop: 8, fontSize: 14, color: "#cbd5e1" }}>
+              保持状態: {latch ? "保持中" : "未保持"}
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      <div className="subtabs" style={{ marginTop: 18 }}>
+        <button className={`tab-btn ${viewMode === "sequence" ? "active" : ""}`} onClick={() => setViewMode("sequence")}>シーケンス図</button>
+        <button className={`tab-btn ${viewMode === "drawing" ? "active" : ""}`} onClick={() => setViewMode("drawing")}>シーケンス図面</button>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        {viewMode === "sequence" ? (
+          <SequenceDiagram lesson={lesson} animatedStep={visibleStep} />
+        ) : (
+          <SequenceDrawingView lesson={lesson} visibleStep={visibleStep} />
+        )}
+      </div>
+
+      <div className="result-grid" style={{ marginTop: 18 }}>
+        <div className="soft-panel">
+          <div style={{ fontSize: 12, color: "#64748b" }}>動作結果</div>
+          <div style={{ marginTop: 8, fontSize: 24, fontWeight: 800 }}>{lesson.simulator.outputLabel}: {result.output ? "ON" : "OFF"}</div>
+          <div style={{ marginTop: 10, lineHeight: 1.8, fontSize: 14, color: "#475569" }}>
+            アニメーションでは、成立した条件が順に光り、最後に出力へ到達します。図面タブでは参考画像のような縦配線ベースの見え方で確認できます。
+          </div>
+        </div>
+        <div className="log-box" style={{ background: "white" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
+            <CircuitBoard size={16} />
+            図面ビューの狙い
+          </div>
+          <div style={{ marginTop: 10, lineHeight: 1.8, fontSize: 14, color: "#475569" }}>
+            実図面そのものではなく、参考図面の雰囲気に寄せた教育用の簡易図面表示です。将来的に機器記号や接点番号を部署ルールに合わせて増やしやすい構成にしています。
+          </div>
+        </div>
+      </div>
+
+      <div className="btn-row" style={{ marginTop: 18 }}>
+        <button className="btn" onClick={playSequence}><Play size={16} />アニメーション再生</button>
+        <button className="btn secondary" onClick={reset}><RotateCcw size={16} />リセット</button>
+      </div>
+
+      <div className="log-box" style={{ marginTop: 18 }}>
+        <div style={{ fontWeight: 700 }}>動作ログ</div>
+        {history.length === 0 ? (
+          <div style={{ marginTop: 10, fontSize: 14, color: "#64748b" }}>まだ操作ログはありません。条件を切り替えてアニメーション再生してみてください。</div>
+        ) : (
+          <div className="log-stack">
+            {history.map((item, index) => <div key={index} className="log-item">{item.text}</div>)}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
 export default function SequenceControlLearningApp() {
   const [selectedLessonId, setSelectedLessonId] = useState(1);
-  const [completed, setCompleted] = useState([]);
+  const [completed, setCompleted] = useState<number[]>([]);
   const [note, setNote] = useState("");
-  const [selectedTrack, setSelectedTrack] = useState("intro");
+  const [selectedTrack, setSelectedTrack] = useState<Level["key"]>("intro");
   const [speed, setSpeed] = useState(700);
+  const [activeTab, setActiveTab] = useState<"learn" | "simulate" | "review">("learn");
 
   const filteredLessons = lessons.filter((item) => item.track === selectedTrack);
   const lesson = filteredLessons.find((item) => item.id === selectedLessonId) || filteredLessons[0];
@@ -904,138 +1118,125 @@ export default function SequenceControlLearningApp() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200 p-6 text-slate-900">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <Card className="rounded-[28px] border-0 shadow-xl">
-            <CardContent className="p-6 md:p-8">
-              <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr] lg:items-center">
+    <>
+      <style>{appStyles}</style>
+      <div className="app-shell">
+        <div className="app-wrap">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="card hero-card">
+              <div className="hero-grid">
                 <div>
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    <Badge className="rounded-full">インターン向け 学習アプリ</Badge>
-                    <Badge variant="outline" className="rounded-full">高校生〜大学生対応</Badge>
-                    <Badge variant="outline" className="rounded-full">ハード設計向け シーケンス図面対応</Badge>
+                  <div className="badge-row">
+                    <span className="badge badge-solid">インターン向け 学習アプリ</span>
+                    <span className="badge">高校生〜大学生対応</span>
+                    <span className="badge">ハード設計向け シーケンス図面対応</span>
                   </div>
-                  <h1 className="text-3xl font-bold tracking-tight md:text-4xl">シーケンス制御を、レベル別に見て・動かして学べる</h1>
-                  <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
+                  <h1 className="hero-title">シーケンス制御を、レベル別に見て・動かして学べる</h1>
+                  <p className="hero-desc">
                     初級・中級・上級それぞれに3題ずつ用意し、アニメーション速度調整UIと、参考図面の雰囲気に寄せたシーケンス図面ビューを追加しました。
                     シミュレータで条件を切り替えたあと、そのままシーケンス図と図面ビューを見比べながら学べます。
                   </p>
                 </div>
-                <div className="rounded-[24px] bg-slate-950 p-5 text-white shadow-inner">
-                  <div className="flex items-center gap-2 text-sm text-slate-300">
-                    <Trophy className="h-4 w-4" />
-                    全体進捗
-                  </div>
-                  <div className="mt-3 text-3xl font-bold">{progress}%</div>
-                  <div className="mt-3"><Progress value={progress} /></div>
-                  <div className="mt-3 text-sm text-slate-300">完了済み: {completed.length} / {lessons.length} レッスン</div>
+                <div className="progress-panel">
+                  <div className="progress-label"><Trophy size={16} />全体進捗</div>
+                  <div className="progress-value">{progress}%</div>
+                  <div className="progress-bar"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
+                  <div style={{ marginTop: 10, fontSize: 14, color: "#cbd5e1" }}>完了済み: {completed.length} / {lessons.length} レッスン</div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <Card className="rounded-2xl border-0 shadow-lg">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-5 w-5" />
-              <CardTitle>学習レベルを選ぶ</CardTitle>
             </div>
-            <CardDescription>参加者の理解度に合わせて、初級・中級・上級を切り替えられます。各レベル3題です。</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-3">
-            {levels.map((item) => {
-              const active = item.key === selectedTrack;
-              const count = lessons.filter((lessonItem) => lessonItem.track === item.key).length;
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => setSelectedTrack(item.key)}
-                  className={`rounded-2xl border p-4 text-left transition ${active ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white hover:bg-slate-50"}`}
-                >
-                  <div className="text-xs opacity-70">{item.audience}</div>
-                  <div className="mt-1 text-lg font-semibold">{item.label}</div>
-                  <div className={`mt-2 text-sm leading-6 ${active ? "text-slate-300" : "text-slate-600"}`}>{item.description}</div>
-                  <div className={`mt-3 text-xs ${active ? "text-slate-300" : "text-slate-500"}`}>題目数: {count}</div>
-                </button>
-              );
-            })}
-          </CardContent>
-        </Card>
+          </motion.div>
 
-        <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
-          <Card className="rounded-2xl border-0 shadow-lg h-fit">
-            <CardHeader>
-              <CardTitle>レッスン一覧</CardTitle>
-              <CardDescription>選んだレベルの題目を表示します。</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {filteredLessons.map((item) => {
-                const done = completed.includes(item.id);
-                const active = item.id === lesson?.id;
+          <div className="card section-card">
+            <div className="section-title-row">
+              <GraduationCap size={20} />
+              <h2 className="section-title">学習レベルを選ぶ</h2>
+            </div>
+            <div className="section-desc">参加者の理解度に合わせて、初級・中級・上級を切り替えられます。各レベル3題です。</div>
+
+            <div className="level-grid">
+              {levels.map((item) => {
+                const count = lessons.filter((lessonItem) => lessonItem.track === item.key).length;
+                const active = selectedTrack === item.key;
                 return (
-                  <button
-                    key={item.id}
-                    onClick={() => setSelectedLessonId(item.id)}
-                    className={`w-full rounded-2xl p-4 text-left transition ${active ? "bg-slate-900 text-white shadow-lg" : "bg-slate-50 hover:bg-slate-100"}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-xs opacity-70">Lesson {item.id}</div>
-                        <div className="font-semibold">{item.title}</div>
-                        <div className={`mt-1 text-xs ${active ? "text-slate-300" : "text-slate-500"}`}>{item.level}</div>
-                      </div>
-                      {done && <CheckCircle2 className="h-5 w-5" />}
-                    </div>
+                  <button key={item.key} className={`level-btn ${active ? "active" : ""}`} onClick={() => setSelectedTrack(item.key)}>
+                    <div className="level-sub">{item.audience}</div>
+                    <div className="level-name">{item.label}</div>
+                    <div className="level-desc">{item.description}</div>
+                    <div style={{ marginTop: 10, fontSize: 12, opacity: 0.76 }}>題目数: {count}</div>
                   </button>
                 );
               })}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {lesson && (
-            <Tabs defaultValue="learn" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-3 rounded-2xl">
-                <TabsTrigger value="learn">学ぶ</TabsTrigger>
-                <TabsTrigger value="simulate">動作確認</TabsTrigger>
-                <TabsTrigger value="review">レビュー用メモ</TabsTrigger>
-              </TabsList>
+          <div className="layout-grid">
+            <div className="card lesson-list">
+              <div className="section-title">レッスン一覧</div>
+              <div className="section-desc">選んだレベルの題目を表示します。</div>
+              <div className="lesson-stack">
+                {filteredLessons.map((item) => {
+                  const active = item.id === lesson?.id;
+                  const done = completed.includes(item.id);
+                  return (
+                    <button key={item.id} className={`lesson-btn ${active ? "active" : ""}`} onClick={() => setSelectedLessonId(item.id)}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                        <div>
+                          <div className="lesson-sub">Lesson {item.id}</div>
+                          <div className="lesson-title">{item.title}</div>
+                          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.72 }}>{item.level}</div>
+                        </div>
+                        {done && <CheckCircle2 className="checkmark" size={18} />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-              <TabsContent value="learn" className="space-y-4">
-                <KnowledgePanel lesson={lesson} />
-                <QuizPanel lesson={lesson} onCorrect={markComplete} />
-              </TabsContent>
+            {lesson && (
+              <div className="panel-stack">
+                <div className="tabs-row">
+                  <button className={`tab-btn ${activeTab === "learn" ? "active" : ""}`} onClick={() => setActiveTab("learn")}>学ぶ</button>
+                  <button className={`tab-btn ${activeTab === "simulate" ? "active" : ""}`} onClick={() => setActiveTab("simulate")}>動作確認</button>
+                  <button className={`tab-btn ${activeTab === "review" ? "active" : ""}`} onClick={() => setActiveTab("review")}>レビュー用メモ</button>
+                </div>
 
-              <TabsContent value="simulate">
-                <BasicSimulator lesson={lesson} speed={speed} onSpeedChange={setSpeed} />
-              </TabsContent>
+                {activeTab === "learn" && (
+                  <>
+                    <KnowledgePanel lesson={lesson} />
+                    <QuizPanel lesson={lesson} onCorrect={markComplete} />
+                  </>
+                )}
 
-              <TabsContent value="review">
-                <Card className="rounded-2xl border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle>レビュー用メモ欄</CardTitle>
-                    <CardDescription>インターン説明時に足したい補足や、改善案をその場で残せます。</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
+                {activeTab === "simulate" && (
+                  <BasicSimulator lesson={lesson} speed={speed} onSpeedChange={setSpeed} />
+                )}
+
+                {activeTab === "review" && (
+                  <div className="card content-card">
+                    <div className="section-title">レビュー用メモ欄</div>
+                    <div className="section-desc">インターン説明時に足したい補足や、改善案をその場で残せます。</div>
+                    <div className="point-box" style={{ marginTop: 16 }}>
                       例: 「図面ビューに端子番号を追加」「初級は専門用語をさらに減らす」「EMG回路を実機の記号に寄せる」「アニメーション速度の初期値を変更」
                     </div>
-                    <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="レビューコメントや次に追加したい内容を書く" className="h-12 rounded-xl" />
-                    <div className="rounded-2xl border border-dashed p-4 text-sm text-slate-600 min-h-[180px] whitespace-pre-wrap">
+                    <div style={{ marginTop: 16 }}>
+                      <input className="memo-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="レビューコメントや次に追加したい内容を書く" />
+                    </div>
+                    <div className="memo-box" style={{ marginTop: 16 }}>
                       {note || "ここに入力した内容がレビュー用メモとして表示されます。"}
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => setNote("")}>メモをクリア</Button>
-                      <Button onClick={markComplete}>このレッスンを完了にする</Button>
+                    <div className="btn-row" style={{ marginTop: 16 }}>
+                      <button className="btn secondary" onClick={() => setNote("")}>メモをクリア</button>
+                      <button className="btn" onClick={markComplete}>このレッスンを完了にする</button>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
