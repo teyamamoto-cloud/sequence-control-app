@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   CheckCircle2,
@@ -717,9 +717,6 @@ const appStyles = `
   }
 `;
 
-function IconLabel({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{icon}{text}</div>;
-}
 
 function SequenceDiagram({ lesson, animatedStep }: { lesson: Lesson; animatedStep: number }) {
   return (
